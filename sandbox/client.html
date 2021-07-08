@@ -60,6 +60,26 @@
 
   <script src="/axios.js"></script>
   <script>
+    // 模拟源码中的bind方法
+    (function IIFE(){
+      function A() {
+        this.a = 123;
+        this.m = '456'
+      }
+      A.prototype.request = function (config) {
+        console.log(this.a);
+        console.log(this.m);
+        console.log(config);
+      }
+      var a1 = new A();
+      function bind(fn, thisArg) {
+        return function wrap() {
+          return fn.apply(thisArg, arguments);
+        }
+      }
+      const instance = bind(A.prototype.request, a1);
+      instance(666);
+    }());
     (function () {
       // Just for you IE8
       if (typeof Array.prototype.indexOf === 'undefined') {
