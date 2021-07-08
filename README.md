@@ -34,7 +34,7 @@
 
 
 
-## axios源码优点
+## axios源码阅读
 
 1. 函数表达式都有具体的函数名，这样对于代码的可读性和理解性都很重要，而且如果没有函数名，那么匿名函数在栈追踪不会显示有意义的函数名，调试会变得困难。
 
@@ -46,3 +46,25 @@ axios.create = function create(instanceConfig) {
 };
 ...
 ```
+
+2. bind方法（疑问）
+
+```js
+'use strict';
+
+// bind函数：传递函数fn和thisArg指向，返回wrap函数
+// wrap函数：把当前的参数arguments转成是数组，作为fn函数的参数，最后返回fn函数的调用结果。
+module.exports = function bind(fn, thisArg) {
+  return function wrap() {
+    var args = new Array(arguments.length);
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i];
+    }
+    // apply是支持arguments这样的伪数组对象，这里有一个疑问？为什么源码上要把arguments转成是数组再调用apply？
+    return fn.apply(thisArg, args);
+  };
+};
+
+```
+
+apply是支持伪数组对象arguments，但是源码要先把arguments转成是数组在传入到apply里，为什么要这样做？
