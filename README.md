@@ -69,3 +69,13 @@ module.exports = function bind(fn, thisArg) {
 
 apply是支持伪数组对象arguments，但是源码要先把arguments转成是数组在传入到apply里，为什么要这样做？
 
+3. 函数上绑定属性
+
+```js
+function wrap(){}
+wrap.defaults = {};
+wrap.interceptors = {};
+wrap.get = function() {};
+wrap.post = function() {};
+```
+
