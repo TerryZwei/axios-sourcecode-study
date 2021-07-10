@@ -79,3 +79,10 @@ wrap.get = function() {};
 wrap.post = function() {};
 ```
 
+4. 拦截器上的三个方法use、eject、forEach
+
+use方法，把新的请求拦截到handler数组，并且返回对应的索引值；
+
+eject，根据id对handler数组中的拦截器进行删除（对应的值设置为null）；
+
+forEach，遍历每一个handler数组的非null的拦截器进行调用；
