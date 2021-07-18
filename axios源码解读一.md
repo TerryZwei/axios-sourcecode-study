@@ -246,6 +246,15 @@ utils.extend(axios, request, obj);
 
 ### 4.4. 第二步：实例化
 
+#### 4.4.1. 调用顺序
+
+- `createInstance`方法；`（lib/axios.js）`
+- `Axios`构造函数和两个`utils.forEach`方法；`（lib/core/Axios.js）`
+- `InterceptorManager`构造函数；`（lib/core/Axios.js）`
+- 最后的`bind`和`extend`方法的绑定；`（lib/axios.js）`
+
+
+
 代码中初始化的时候执行了`var axios = createInstance(defaults);`，所以我们这一步重点关注`createInstance`函数。
 
 ```js
@@ -258,20 +267,126 @@ function createInstance(defaultConfig) {
   // 返回Axios实例 {defaults, interceptors}
   var context = new Axios(defaultConfig);
   
-  // 这里bind返回一个wrap函数；
-  // bind函数作用：调用instance相当于调用了Axios.prototype.request，并且把request的方法指向Axios实例context，换句话说执行axios就相当于执行Axios.prototype.request；
-  var instance = bind(Axios.prototype.request, context);
-
-  // wrap是函数（js函数也是对象，可以在函数上添加其他属性）
-  // wrap函数的基础上扩展Axios.prototype上的方法（get，post，patch，delete...），这里extend方法使我们可以调用axios.get()、axios.post()...
-  utils.extend(instance, Axios.prototype, context);
-
-  // Copy context to instance
-  // wrap函数的基础上扩展defaults,interceptors属性
-  utils.extend(instance, context);
-  // 返回wrap函数
-  // 现在的wrap函数身上绑定了get,post,put,delete,request...的方法，还有defaults，interceptors属性
+  ...
+  
   return instance;
 }
 ```
+
+
+
+#### 4.4.2. 调用Axios构造函数
+
+`var context = new Axios(defaultConfig);`，这里使用了`new`操作符调用了`Axios`构造函数，返回值`{defaults, interceptors}`，并且在`context`对象上绑定了`Axios`原型链上的`request`方法，还有`get`、`post`、`delete`、`patch`、`put`等方法，这些方法本质上其实还是调用`request`方法。因为初始化的时候还没有调用这些请求方法，所以会把这个`request`方法放到下一个篇章。
+
+
+
+**构造函数Axios：**
+
+```js
+/**
+ * Axios类
+ * 配置对象绑定在defaults属性
+ * 拦截器实例（请求，响应）绑定在interceptors属性
+ * @param {*} instanceConfig 实例上的配置
+ */
+function Axios(instanceConfig) {
+  this.defaults = instanceConfig;
+  // 拦截器
+  this.interceptors = {
+    request: new InterceptorManager(),
+    response: new InterceptorManager()
+  };
+}
+```
+
+构造函数`Axios`上面初始化的时候绑定默认配置`defaults`，并且在拦截器`interceptors`扩展`requst`和`response`属性。
+
+
+
+#### 4.4.3. 拦截器构造函数InterceptorManager
+
+这个构造函数内有三个方法，分别是`use（添加）`、`eject（根据id清空）`、`forEach（遍历）`。
+
+```js
+'use strict';
+
+var utils = require('./../utils');
+
+function InterceptorManager() {
+  this.handlers = [];
+}
+
+// 往handles数组末尾添加元素{成功回调函数，失败回调函数}，并且把添加后对应的索引值返回
+InterceptorManager.prototype.use = function use(fulfilled, rejected) {
+  this.handlers.push({
+    fulfilled: fulfilled,
+    rejected: rejected
+  });
+  return this.handlers.length - 1;
+};
+
+// 根据id（索引值）清空handles数组上的元素
+InterceptorManager.prototype.eject = function eject(id) {
+  if (this.handlers[id]) {
+    this.handlers[id] = null;
+  }
+};
+
+// 遍历handles数组上的元素，把它们传给fn执行，这里过滤掉为null的元素。
+InterceptorManager.prototype.forEach = function forEach(fn) {
+  utils.forEach(this.handlers, function forEachHandler(h) {
+    if (h !== null) {
+      fn(h);
+    }
+  });
+};
+
+module.exports = InterceptorManager;
+
+```
+
+
+
+#### 4.4.4. bind函数和extend函数
+
+让我们回到`createInstance`函数初始化的地方，`new`操作符调用了`Axios`构造函数返回的对象`context`，此时它上面拥有了各种请求方法`（get、post、put、delete）`,而且也拥有了拦截器属性`（interceptors）`和默认配置属性`（defaults）`，但是`createInstance`函数还没有结束，我们继续往下看
+
+```js
+/**
+ * 创建axios实例
+ * @param {*} defaultConfig 实例上的默认配置
+ * @returns Axios实例
+ */
+function createInstance(defaultConfig) {
+  // 返回Axios实例 {defaults, interceptors}
+  var context = new Axios(defaultConfig);
+  
+  // 把request方法里面的this绑定到实例对象context（{defaults, interceptors}）上
+  var instance = bind(Axios.prototype.request, context);
+
+  // instance是原型链上的request函数（this绑定在contenxt上）
+  // 这里的extend函数就是把原型链上的所有请求方法都添加都instance函数上（js函数也是对象，也就是往函数上添加其他属性），并且把this都绑定在实例对象context上
+  // 目的：使instance既可以执行，也可以调用属性方法(get、post、put、delete...)
+  utils.extend(instance, Axios.prototype, context);
+
+  // instance函数的基础上扩展defaults,interceptors属性
+  utils.extend(instance, context);
+
+  // 返回instance函数
+  // 现在的instance函数身上绑定了get,post,put,delete,request...的方法，还有defaults，interceptors属性
+  return instance;
+}
+```
+
+`createInstance`最后返回的`instance`，它本身就是`request`函数，然而`instance`身上还有其他的属性方法`（get、post、put、delete）`，还有实例上的属性`defaults`和拦截器`interceptors`。所以项目引入`axios`库的时候，既可以调用`axios()、axios.get()、axios.post()`发送请求，也可以通过`axios.defaults`获取默认属性，还可以通过`axios.interceptors`对拦截器进行调用。
+
+
+
+## 5. 总结
+
+本章详细的讲解了`axios`库的源码运行和调式，还有梳理了`axios`初始化时候调用的函数，知道`axios`本质上就是一个函数，既可以当作函数调用`axios()`，也可以当作对象使用`axios.get()`。但这里没有把`request`具体逻辑和`cancel`方法进行分析，后续会把这部分给补充完整。
+
+如果读者发现有不妥或者可以改善的地方，欢迎在评论区指出。如果觉得写得不错或者对你有所帮助，可以点赞、评论、转发分享，谢谢~
+
 
