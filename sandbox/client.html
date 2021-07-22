@@ -62,6 +62,27 @@
 
   <script src="/axios.js"></script>
   <script>
+    const CancelToken = axios.CancelToken;
+    const source = CancelToken.source();
+
+    axios.get('/user/12345', {
+      cancelToken: source.token
+    }).catch(function (thrown) {
+      if (axios.isCancel(thrown)) {
+        console.log('Request canceled', thrown.message);
+      } else {
+        // handle error
+      }
+    });
+
+    axios.post('/user/12345', {
+      name: 'new name'
+    }, {
+      // cancelToken: source.token
+    })
+
+    // cancel the request (the message parameter is optional)
+    source.cancel('Operation canceled by the user.');
     // 模拟源码中的bind方法
     (function IIFE() {
       function A() {
